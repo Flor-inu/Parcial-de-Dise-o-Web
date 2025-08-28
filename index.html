@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Web Design Exam</title>
+    <link
+      rel="stylesheet"
+      href="https://code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css"
+    />
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+    <style>
+      th {
+        color: darkslategrey;
+        padding: 8px;
+      }
+
+      td {
+        padding: 6px;
+        border-bottom: 1px solid #ddd;
+      }
+
+      button {
+        padding: 5px 10px;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      .btn-edit {
+        background-color: #63d165;
+        color: white;
+      }
+
+      .btn-remove {
+        background-color: #b6382f;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <table style="border: 1px solid; border-collapse: collapse; width: 100%"></table>
+
+    <div id="popUp" title="Web Design Exam" style="overflow-x: hidden">
+      <table>
+        <tr>
+          <td>albumId:</td>
+          <td><input type="text" id="albumId" /></td>
+        </tr>
+         <tr>
+          <td>id:</td>
+          <td><input type="text" id="albumId" /></td>
+        </tr>
+        <tr>
+          <td>title:</td>
+          <td><input type="text" id="title" /></td>
+        </tr>
+        <tr>
+          <td>url:</td>
+          <td><input type="text" id="url" /></td>
+        </tr>
+        <tr>
+          <td>thumbnailUrl:</td>
+          <td><input type="text" id="thumbnailUrl" /></td>
+        </tr>
+      </table>
+    </div>
+
+    <script>
+      const url = "https://jsonplaceholder.typicode.com/photos";
+      let currentObject = null;
+
+      window.onload = function () {
+        loadObjects();
+
+        $("#popUp").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 400,
+          buttons: {
+            Guardar: function () {
+              if (currentObject) {
+                updateObject();
+              } else {
+                saveObject();
+              }
+            },
+            Cancelar: function () {
+              $(this).dialog("close");
+            },
+          },
+        });
+      };
+
+      function loadObjects() {
+        fetch(url)
+          .then((response) => response.json())
+          .then((data) => {
+            displayData(data);
+          })
+          .catch((error) => console.error("Error al cargar:", error));
+      }
+
+      function addObject(newObject) {
+        return fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newObject),
+        })
+          .then((response) => response.json())
+          .then((data) => data)
+          .catch((error) => console.error("Error al agregar:", error));
+      }
+
+      function removeObject(id) {
+        return fetch(`${url}/${id}`, {
+          method: "DELETE",
+        })
+          .then((response) => {
+            if (response.ok) {
+              return { id: id };
+            }
+            throw new Error("Error en DELETE");
+          })
+          .catch((error) => console.error("Error deleting:", error));
+      }
+
+      function modifyObject(id, updatedObject) {
+        return fetch(`${url}/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedObject),
+        })
+          .then((response) => response.json())
+          .then((data) => data)
+          .catch((error) => console.error("Error while modifying:", error));
+      }
+
+      function saveObject() {
+        const newObject = {
+          albumId: $("#albumId").val(),
+          title: $("#title").val(),
+          url: $("#url").val(),
+          thumbnailUrl: $("#thumbnailUrl").val(),
+        };
+        addObject(newObject).then(() => {
+          $("#popUp").dialog("close");
+          loadObjects();
+        });
+      }
+
+      function deleteObject(id) {
+        if (confirm("Are you sure you want to delete?")) {
+          removeObject(id).then(() => {
+            loadObjects();
+          });
+        }
+      }
+
+      function updateObject() {
+        const updatedObject = {
+          id: currentObject.id,
+          albumId: $("#albumId").val(),
+          id: $("#id").val(),
+          title: $("#title").val(),
+          url: $("#url").val(),
+          thumbnailUrl: $("#thumbnailUrl").val(),
+        };
+        modifyObject(currentObject.id, updatedObject).then(() => {
+          $("#popUp").dialog("close");
+          currentObject = null;
+          loadObjects();
+        });
+      }
+
+      function displayData(data) {
+        const table = $("table:first");
+        table.empty();
+        table.append(`
+          <thead>
+            <tr>
+              <th>AlbumId</th>
+              <th>Id</th>
+              <th>Title</th>
+              <th>Url</th>
+              <th>ThumbnailUrl</th>
+              <th>Edit</th>
+              <th>Remove</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `);
+
+        data.forEach((user) => {
+          table.find("tbody").append(`
+            <tr>
+              <td>${user.albumId}</td>
+              <td>${user.id}</td>
+              <td>${user.title}</td>
+              <td>${user.url}</td>
+              <td>${user.thumbnailUrl}</td>
+              <td><button class="btn-edit" onclick="editUser(${user.id})">Edit</button></td>
+              <td><button class="btn-remove" onclick="deleteObject(${user.id})">Remove</button></td>
+            </tr>
+          `);
+        });
+
+        if ($("#addButton").length === 0) {
+          table.after('<button id="addButton">Add New</button>');
+          $("#addButton").click(openPopupForAdd);
+        }
+      }
+
+      function openPopupForAdd() {
+        currentObject = null;
+        $("#albumId").val("");
+        $("#id").val("");
+        $("#title").val("");
+        $("#url").val("");
+        $("#thumbnailUrl").val("");
+        $("#popUp").dialog("open");
+      }
+
+      function editUser(id) {
+        fetch(`${url}/${id}`)
+          .then((response) => response.json())
+          .then((user) => {
+            currentObject = user;
+            $("#albumId").val(user.albumId);
+            $("#id").val(user.id);
+            $("#title").val(user.title);
+            $("#url").val(user.url);
+            $("#thumbnailUrl").val(user.thumbnailUrl);
+            $("#popUp").dialog("open");
+          });
+      }
+    </script>
+  </body>
+</html>
