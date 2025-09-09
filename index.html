@@ -19,6 +19,49 @@
         padding: 6px;
         border-bottom: 1px solid #ddd;
       }
+      /* Estilo del título del diálogo */
+    .ui-dialog-titlebar {
+       background: #2c3e50;   /* Color de fondo */
+       color: white;          /* Texto blanco */
+       font-weight: bold;
+       border: none;
+       border-radius: 6px 6px 0 0;
+       padding: 8px 12px;
+    }
+/* Aseguramos que el icono de cierre se vea bien */
+.ui-dialog .ui-dialog-titlebar-close .ui-icon {
+    background-image: none; /* Quitamos la imagen por defecto */
+    display: block;
+    text-align: center;
+    line-height: 1;
+    font-size: 18px;
+}
+
+/* Ponemos la cruz */
+.ui-dialog .ui-dialog-titlebar-close::before {
+    content: "✖"; /* Cruz */
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.ui-dialog .ui-dialog-titlebar-close:hover::before {
+    color: #e74c3c; /* Rojo al pasar el mouse */
+}
+/* Botón de cerrar (la cruz) */
+    .ui-dialog-titlebar-close {
+        background: transparent;
+        border: none;
+        color: white;
+       font-size: 16px;
+       font-weight: bold;
+       margin-right: 6px;
+       cursor: pointer;
+    }
+
+    .ui-dialog-titlebar-close:hover {
+        color: #e74c3c; /* Rojo al pasar el mouse */
+    }
 
       button {
         padding: 5px 10px;
@@ -36,6 +79,23 @@
         background-color: #b6382f;
         color: white;
       }
+
+      /* 🔹 Estilos extra para el popup */
+      #popUp table td {
+        padding: 6px;
+      }
+
+      #popUp input {
+        width: 100%;
+        padding: 4px;
+        box-sizing: border-box;
+      }
+
+      #id[readonly] {
+        background: #f0f0f0;
+        cursor: not-allowed;
+        
+      }
     </style>
   </head>
   <body>
@@ -47,9 +107,10 @@
           <td>albumId:</td>
           <td><input type="text" id="albumId" /></td>
         </tr>
-         <tr>
+        <tr>
           <td>id:</td>
-          <td><input type="text" id="albumId" /></td>
+          <!-- 🔹 Ahora es de solo lectura -->
+          <td><input type="text" id="id" readonly /></td>
         </tr>
         <tr>
           <td>title:</td>
@@ -69,6 +130,9 @@
     <script>
       const url = "https://jsonplaceholder.typicode.com/photos";
       let currentObject = null;
+
+      // 🔹 Nuevo: array local para reflejar cambios
+      let objectsData = [];
 
       window.onload = function () {
         loadObjects();
@@ -96,68 +160,34 @@
         fetch(url)
           .then((response) => response.json())
           .then((data) => {
-            displayData(data);
+            // 🔹 Guardamos los datos en el array local
+            objectsData = data.slice(0, 10); // cargo solo 10 para que no sea gigante
+            displayData(objectsData);
           })
-          .catch((error) => console.error("Error al cargar:", error));
-      }
-
-      function addObject(newObject) {
-        return fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newObject),
-        })
-          .then((response) => response.json())
-          .then((data) => data)
-          .catch((error) => console.error("Error al agregar:", error));
-      }
-
-      function removeObject(id) {
-        return fetch(`${url}/${id}`, {
-          method: "DELETE",
-        })
-          .then((response) => {
-            if (response.ok) {
-              return { id: id };
-            }
-            throw new Error("Error en DELETE");
-          })
-          .catch((error) => console.error("Error deleting:", error));
-      }
-
-      function modifyObject(id, updatedObject) {
-        return fetch(`${url}/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedObject),
-        })
-          .then((response) => response.json())
-          .then((data) => data)
-          .catch((error) => console.error("Error while modifying:", error));
+          .catch((error) => console.error("Error loading:", error));
       }
 
       function saveObject() {
         const newObject = {
           albumId: $("#albumId").val(),
+          id: Date.now(), // 🔹 Generamos un id único local
           title: $("#title").val(),
           url: $("#url").val(),
           thumbnailUrl: $("#thumbnailUrl").val(),
         };
-        addObject(newObject).then(() => {
-          $("#popUp").dialog("close");
-          loadObjects();
-        });
+
+        // 🔹 Lo agregamos al array local
+        objectsData.push(newObject);
+
+        $("#popUp").dialog("close");
+        displayData(objectsData);
       }
 
       function deleteObject(id) {
         if (confirm("Are you sure you want to delete?")) {
-          removeObject(id).then(() => {
-            loadObjects();
-          });
+          // 🔹 Eliminamos del array local
+          objectsData = objectsData.filter((obj) => obj.id !== id);
+          displayData(objectsData);
         }
       }
 
@@ -165,16 +195,19 @@
         const updatedObject = {
           id: currentObject.id,
           albumId: $("#albumId").val(),
-          id: $("#id").val(),
           title: $("#title").val(),
           url: $("#url").val(),
           thumbnailUrl: $("#thumbnailUrl").val(),
         };
-        modifyObject(currentObject.id, updatedObject).then(() => {
-          $("#popUp").dialog("close");
-          currentObject = null;
-          loadObjects();
-        });
+
+        // 🔹 Actualizamos el array local
+        objectsData = objectsData.map((obj) =>
+          obj.id === currentObject.id ? updatedObject : obj
+        );
+
+        $("#popUp").dialog("close");
+        currentObject = null;
+        displayData(objectsData);
       }
 
       function displayData(data) {
@@ -226,17 +259,17 @@
       }
 
       function editUser(id) {
-        fetch(`${url}/${id}`)
-          .then((response) => response.json())
-          .then((user) => {
-            currentObject = user;
-            $("#albumId").val(user.albumId);
-            $("#id").val(user.id);
-            $("#title").val(user.title);
-            $("#url").val(user.url);
-            $("#thumbnailUrl").val(user.thumbnailUrl);
-            $("#popUp").dialog("open");
-          });
+        // 🔹 Buscamos el objeto en el array local en vez de pedirlo a la API
+        const user = objectsData.find((obj) => obj.id === id);
+        if (user) {
+          currentObject = user;
+          $("#albumId").val(user.albumId);
+          $("#id").val(user.id);
+          $("#title").val(user.title);
+          $("#url").val(user.url);
+          $("#thumbnailUrl").val(user.thumbnailUrl);
+          $("#popUp").dialog("open");
+        }
       }
     </script>
   </body>
